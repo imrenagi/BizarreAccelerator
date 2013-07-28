@@ -2,11 +2,17 @@ Stage: %s% <br/>
 <span class="clickable" onclick="stage.play()">Play</span>
 <span class="clickable" onclick="stage.pause()">Pause</span>
 <span class="clickable" onclick="stage.stop()">Stop</span>
+<span class="clickable" onclick="stage.removeAllUtils()">Clear</span>
 
 <div id="stage-container"></div>
+<div id="utils-container"></div>
 
 <a href="stage-selection.html">Back</a>
 
 <script type="text/javascript">
     requestStage(%s%);
+    document.getElementById("stage-container").addEventListener("contextmenu", function(e) {
+        e.preventDefault();
+    });
 </script>
+

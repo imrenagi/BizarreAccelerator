@@ -2,6 +2,7 @@
 
 $filename = $_GET["f"];
 $content = file_get_contents("dc/".$filename);
+// echo $content;
 
 if ($content === false) {
     $retval = array("status" => 0, "msg" => "File not found", "content" => "");

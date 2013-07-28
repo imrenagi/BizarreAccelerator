@@ -15,7 +15,7 @@ function loadPage(furl) {
     }
     
     $.ajax({
-        "url": "page-loader.php",
+        "url": "page-loader.php?f=" + filename,
         "type": "GET",
         "dataType": "json",
         "data": {"f": filename},
@@ -36,6 +36,9 @@ function loadPage(furl) {
             $("#content").html(content);
             modifyAnchor();
             pageLoading("hide");
+        },
+        "error": function(a, b, c) {
+            console.log(a, b, c);
         }
     });
     

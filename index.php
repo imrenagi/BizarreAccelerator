@@ -6,8 +6,10 @@
         <script type="text/javascript" src="js/kinetic-v4.5.4.min.js"></script>
         
         <script type="text/javascript" src="js/constants.js"></script>
-        <script type="text/javascript" src="js/geometry.js"></script>
+        <script type="text/javascript" src="js/images-loader.js"></script>
+        <script type="text/javascript" src="js/utils.js"></script>
         <script type="text/javascript" src="js/objects.js"></script>
+        <script type="text/javascript" src="js/stage.js"></script>
         
         <script type="text/javascript" src="js/page-controller.js"></script>
         <script type="text/javascript" src="js/play-controller.js"></script>
