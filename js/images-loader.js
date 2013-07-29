@@ -7,6 +7,7 @@ function Images() {
     this.BAltInOff = new Image();
     this.BAltOut = new Image();
     this.BAltOutOff = new Image();
+    this.XRay = new Image();
     
     // load all images from their sources
     this.dir = "img/";
@@ -17,6 +18,7 @@ function Images() {
     this.BAltInOff.src = this.dir + "b-alt-in-off.png";
     this.BAltOut.src = this.dir + "b-alt-out.png";
     this.BAltOutOff.src = this.dir + "b-alt-out-off.png";
+    this.XRay.src = this.dir + "xray.png";
 }
 
 var imagesLoader = new Images();

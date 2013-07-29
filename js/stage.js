@@ -1,7 +1,7 @@
 function Stage(data) {
     runTimerID = 0;
     this.data = data;
-    this.stageNum = data.stageNum;
+    this.stageName = data.stageName;
     
     // stage-specific variables
     this.map = data.map;
@@ -21,8 +21,8 @@ function Stage(data) {
     this.playStatus = 0;
     
     // objects in the map
-    this.bg; this.src; this.target;
-    this.paths = [];
+    this.bg;
+    this.elements = [];
     this.utilsOnMap = [];
     this.particles = [];
     
@@ -84,10 +84,10 @@ Stage.prototype.setStageMap = function() {
     });
     
     // add initial objects on the map
-    this.addSource(this.makeObjFromElmt(this.map.src));
-    this.addTarget(this.makeObjFromElmt(this.map.goal));
-    for (var i = 0; i < this.map.elmts.length; i++)
-        this.addPath(this.makeObjFromElmt(this.map.elmts[i]));
+    for (var i = 0; i < this.map.elmts.length; i++) {
+        var obj = this.makeObjFromElmt(this.map.elmts[i]);
+        this.addElement(obj);
+    }
     
     // disable drag in the fixed map layer // ???
 }
@@ -129,19 +129,9 @@ Stage.prototype.makeObjFromElmt = function(elmt) {
  * * pos : position of the element on the grid
  * * dir : 0 upward, 1 right, 2 downward, or 3 left
  */
-Stage.prototype.addSource = function(srcObj) {
-    this.src = srcObj;
-    this.mLayer.add(srcObj.shape);
-}
-
-Stage.prototype.addTarget = function(targetObj) {
-    this.target = targetObj;
-    this.mLayer.add(targetObj.shape);
-}
-
-Stage.prototype.addPath = function(pathObj) {
-    this.paths.push(pathObj);
-    this.mLayer.add(pathObj.shape);
+Stage.prototype.addElement = function(elmtObj) {
+    this.elements.push(elmtObj);
+    this.mLayer.add(elmtObj.shape);
 }
 
 Stage.prototype.addUtil = function(utilObj) {
@@ -196,7 +186,8 @@ Stage.prototype.removeParticle = function(particleObj) {
 }
 
 Stage.prototype.removeAllParticles = function() {
-    for (var i = 0; i < this.particles.length; i++) {
+    var n = this.particles.length;
+    for (var i = 0; i < n; i++) {
         this.particles.pop();
     }
     this.mParticlesLayer.removeChildren();
@@ -212,6 +203,25 @@ Stage.prototype.draw = function() {
 Stage.prototype.refresh = function() {
     this.stage.clear();
     this.draw();
+}
+
+/* getting elements on the map */
+Stage.prototype.getSources = function() {
+    var objects = this.elements.concat(this.utilsOnMap);
+    var srcs = [];
+    for (var i = 0; i < objects.length; i++) {
+        if (objects[i].group == "source") srcs.push(objects[i]);
+    }
+    return srcs;
+}
+
+Stage.prototype.getTargets = function() {
+    var objects = this.elements.concat(this.utilsOnMap);
+    var targets = [];
+    for (var i = 0; i < objects.length; i++) {
+        if (objects[i].group == "target") targets.push(objects[i]);
+    }
+    return targets;
 }
 
 /* utilities functions */
@@ -302,7 +312,7 @@ Stage.prototype.canPlaceUtil = function() {
     return this.utils[typeSelected].num > 0;
 }
 
-Stage.prototype.placeUtil = function(x, y) { // place the selected util (precondition: there must be a selected util)
+Stage.prototype.placeUtil = function(x, y) { // place the selected util and return its object (precondition: there must be a selected util)
     var thisObj = this;
     
     // get the type of selected util
@@ -311,6 +321,9 @@ Stage.prototype.placeUtil = function(x, y) { // place the selected util (precond
     // construct an object of the selected util
     var constructor = getConstructorFromType(typeSelected);
     var obj = new constructor(x, y, 0);
+    
+    // adjust the position
+    obj.moveTo(obj.shape.getX()-obj.shape.getWidth()/2, obj.shape.getY()-obj.shape.getHeight()/2);
     
     // set the object to be draggable
     obj.shape.setDraggable(1);
@@ -328,8 +341,7 @@ Stage.prototype.placeUtil = function(x, y) { // place the selected util (precond
         obj.updateBoundingShape();
         
         // check whether the dragged object collides with other objects
-        var otherObjs = thisObj.paths.concat([thisObj.src, thisObj.target]);
-        var colliders = thisObj.getAllColliders([obj], otherObjs);
+        var colliders = thisObj.getAllColliders([obj], thisObj.elements);
         
         // if they collide, then return the object to its initial position
         if (colliders.length > 0) {
@@ -385,6 +397,8 @@ Stage.prototype.placeUtil = function(x, y) { // place the selected util (precond
     // refresh the utilities canvas and the map canvas
     this.refreshUtils();
     this.refresh();
+    
+    return obj;
 }
 
 /* Stage runtime functions */
@@ -402,8 +416,13 @@ Stage.prototype.stop = function() {
     clearTimeout(runTimerID);
     runTimerID = 0;
     
-    // reset source
-    this.src.reset();
+    // reset sources
+    var srcs = this.getSources();
+    for (var i = 0; i < srcs.length; i++) srcs[i].reset();
+    
+    // reset targets
+    var targets = this.getTargets();
+    for (var i = 0; i < targets.length; i++) targets[i].reset();
     
     // delete all particles
     this.removeAllParticles();
@@ -424,9 +443,8 @@ Stage.prototype.run = function() {
         }
         
         // ****** detect collisions among particles, between particles and objects ******
-        var allObjects = this.paths.concat(this.particles);
+        var allObjects = this.elements.concat(this.particles);
         allObjects = allObjects.concat(this.utilsOnMap);
-        allObjects = allObjects.concat([this.src, this.target]);
         
         // check all particles - objects combinations for collision
         var colliders = this.getAllColliders(this.particles, allObjects);
@@ -460,6 +478,16 @@ Stage.prototype.run = function() {
             else if (p1.type == "elec-field") {
                 p0.doElectricForce(p1.E, p1.dir);
             }
+            else if (p1.type == "xray") {
+                if (!p0.penetrable) {
+                    if (p1.canProduceXRay(p0)) {
+                        var photons = p1.produceXRay(p0);
+                        for (var i = 0; i < photons.length; i++) {
+                            this.addParticle(photons[i]);
+                        }
+                    }
+                }
+            }
             else if (p1.group == "particle") {
                 if (!(p0.penetrable || p1.penetrable)) {
                     var newParticles = p0.collisionParticles(p1);//.concat(p0.decayParticles());
@@ -473,19 +501,21 @@ Stage.prototype.run = function() {
             // check if a particle collides the target
             if (p1.type == "fixed-target") {
                 if (p1.checkGoal(p0)) {
-                    stageFinish = true;
+                    p1.goal();
                 }
                 
-                this.target.showParticleEnergy(p0.getEnergy());
+                p1.showParticleEnergy(p0.getEnergy());
             }
             // check if two particles collide inside the detector (collision target)
             else if (p1.group == "particle") {
-                if (this.target.type == "collision-target") {
-                    if (p0.isCollide(this.target)) {
-                        if (this.target.checkGoal(p0, p1)) {
-                            stageFinish = true;
+                var targets = this.getTargets();
+                for (var j = 0; j < targets.length; j++) {
+                    if (targets[j].type == "collision-target") {
+                        if (p0.isCollide(targets[j]) && p1.isCollide(targets[j])) {
+                            if (targets[j].checkGoal(p0, p1)) {
+                                targets[j].goal();
+                            }
                         }
-                        this.showParticleEnergy(getCMEnergy([p0,p1]));
                     }
                 }
             }
@@ -529,16 +559,24 @@ Stage.prototype.run = function() {
         }
         
         // ****** emit particle if the source can emit ******
-        if (this.src.canEmitParticle()) {
-            var particleObj = this.src.emitParticle(this.particleType);
-            this.addParticle(particleObj);
+        var srcs = this.getSources();
+        for (var i = 0; i < srcs.length; i++) {
+            if (srcs[i].canEmitParticle()) {
+                var particleObj = srcs[i].emitParticle();
+                this.addParticle(particleObj);
+            }
         }
         
         this.postRunProcess();
         this.refresh();
         
         // finish the stage
-        if (stageFinish) this.finishStage();
+        var targets = this.getTargets();
+        var finish = true;
+        for (var i = 0; i < targets.length; i++) {
+            if (!targets[i].finish) finish = false;
+        }
+        if (finish && targets.length > 0) this.finishStage();
     }
     
     var thisObj = this;
@@ -555,13 +593,12 @@ Stage.prototype.finishStage = function() {
     clearTimeout(runTimerID);
     runTimerID = 0;
     
-    goToNextStage(this.stageNum);
+    goToNextStage(this.stageName);
 }
 
 Stage.prototype.postRunProcess = function() {
-    var allObjects = this.particles.concat(this.paths);
+    var allObjects = this.particles.concat(this.elements);
     allObjects = allObjects.concat(this.utilsOnMap);
-    allObjects = allObjects.concat([this.src, this.target]);
     
     for (var i = 0; i < allObjects.length; i++) {
         allObjects[i].postProcess();
@@ -600,4 +637,26 @@ Stage.prototype.getAllColliders = function(objs0, objs1) {
     }
     
     return colliders;
+}
+
+// get the configuration basic object of all elements on the map
+Stage.prototype.getConfigObj = function() {
+    var objects = this.elements.concat(this.utilsOnMap);
+    
+    var conf = {};
+    conf.stageName = "";
+    conf.map = {};
+    conf.map.w = this.map.w;
+    conf.map.h = this.map.h;
+    conf.map.elmts = [];
+    
+    for (var i = 0; i < objects.length; i++) {
+        var obj = {};
+        obj.type = objects[i].type;
+        obj.pos = [objects[i].shape.getX(), objects[i].shape.getY()];
+        obj.dir = objects[i].dir;
+        conf.map.elmts.push(obj);
+    }
+    
+    return conf;
 }

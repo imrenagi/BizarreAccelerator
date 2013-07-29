@@ -9,26 +9,47 @@ function requestStage(stageNum) {
         "data": {s: stageNum}, // add cookie here ???
         "dataType": "json",
         "success": function(json) {
+            console.log(json);
             if (json.eligible) {
-                stage = new Stage(json);
-                stage.setup();
+            
+                var setup = function() {
+                    stage = new Stage(json);
+                    stage.setup();
+                    
+                    setTimeout(function() {
+                        if (runTimerID != 0) clearTimeout(runTimerID);
+                        runTimerID = 0;
+                        // enable play // ???
+                    }, 2000);
+                }
                 
-                setTimeout(function() {
-                    if (runTimerID != 0) clearTimeout(runTimerID);
-                    runTimerID = 0;
-                    // enable play // ???
-                }, 2000);
+                if (json.intro) {
+                    showIntroduction(json.intro, setup());
+                } else {
+                    setup();
+                }
+                
             }
             else {
                 alert("Please pass the previous stages first");
                 loadPage("stage-selection.html");
             }
         },
+        "error": function(a,b,c){console.log(a,b,c);}
     });
 }
 
-function goToNextStage(stageNum) {
-    var nextStage = stageNum + 1;
-    loadPage("play.html?s=" + nextStage.toString());
-    // loadPage("front-page.html");
+function showIntroduction(jsonIntro, closeFunc) {
+    // ???
+}
+
+function goToNextStage(stageName) {
+    var stageNum = parseInt(stageName);
+    if (!isNaN(stageNum)) {
+        var nextStage = stageNum + 1;
+        loadPage("play.html?s=" + nextStage.toString());
+    }
+    else {
+        // loadPage("stage-selection.html");
+    }
 }

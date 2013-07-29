@@ -36,6 +36,10 @@ GameObj.prototype.moveTo = function(x, y) {
     this.updateBoundingShape();
 }
 
+GameObj.prototype.rotateOnClick = function() { // function to be executed when the object is clicked
+    this.dir -= Math.PI/2;
+}
+
 GameObj.prototype.postProcess = function() { // post process is to be executed in each frame, e.g. count down timer to toggle magnetic field in alt-mag-field
     // default, do nothing here
 }
@@ -103,14 +107,14 @@ function Source(x, y, dir) {
         return this.canEmit;
     }
 
-    Source.prototype.emitParticle = function(particleType) {
+    Source.prototype.emitParticle = function() {
         // initial condition of the particle
         var x = this.shape.getX();
         var y = this.shape.getY();
         var dir = 0;
         
         // create the particle object
-        var constructor = getConstructorFromType(particleType);
+        var constructor = getConstructorFromType(this.particleType);
         var particleObj = new constructor(x, y, dir);
         
         // set velocity of the particle
@@ -132,10 +136,11 @@ function SingleSourceObj(x, y, dir) {
     this.shape.setFill("red");
     this.shape.setStroke("blue");
     this.energy = 2000;
+    this.particleType = "proton";
 }
 
-    SingleSourceObj.prototype.emitParticle = function(particleType) {
-        var particleObj = Source.prototype.emitParticle.call(this, particleType);
+    SingleSourceObj.prototype.emitParticle = function() {
+        var particleObj = Source.prototype.emitParticle.call(this);
         this.canEmit = 0;
         return particleObj;
     }
@@ -151,10 +156,11 @@ function BurstSourceObj(x, y, dir) {
     
     this.emitCountDownVal = 10;
     this.emitCountDown = this.emitCountDownVal;
+    this.particleType = "proton";
 }
 
-    BurstSourceObj.prototype.emitParticle = function(particleType) {
-        var particleObj = Source.prototype.emitParticle.call(this, particleType);
+    BurstSourceObj.prototype.emitParticle = function() {
+        var particleObj = Source.prototype.emitParticle.call(this);
         this.canEmit = 0;
         var thisObj = this;
         this.emitCountDown = this.emitCountDownVal;
@@ -166,6 +172,48 @@ function BurstSourceObj(x, y, dir) {
         if (this.emitCountDown == 0) this.canEmit = 1;
     }
 
+MuonSourceObj.prototype = new BurstSourceObj();
+MuonSourceObj.prototype.constructor = MuonSourceObj;
+function MuonSourceObj(x, y, dir) {
+    Source.call(this, x, y, dir);
+    this.type = "electron-source";
+    this.energy = 2000;
+    
+    // styling 
+    this.shape.setFill("blue");
+    this.shape.setStroke("yellow");
+    
+    this.particleType = "muon";
+}
+
+ElectronSourceObj.prototype = new BurstSourceObj();
+ElectronSourceObj.prototype.constructor = ElectronSourceObj;
+function ElectronSourceObj(x, y, dir) {
+    Source.call(this, x, y, dir);
+    this.type = "electron-source";
+    this.energy = 2000;
+    
+    // styling 
+    this.shape.setFill("blue");
+    this.shape.setStroke("yellow");
+    
+    this.particleType = "electron";
+}
+
+ProtonSourceObj.prototype = new BurstSourceObj();
+ProtonSourceObj.prototype.constructor = ProtonSourceObj;
+function ProtonSourceObj(x, y, dir) {
+    Source.call(this, x, y, dir);
+    this.type = "electron-source";
+    this.energy = 2000;
+    
+    // styling 
+    this.shape.setFill("blue");
+    this.shape.setStroke("yellow");
+    
+    this.particleType = "proton";
+}
+
 
 
 Target.prototype = new GameObj();
@@ -174,6 +222,7 @@ function Target(x, y, dir) {
     GameObj.call(this, x, y, dir);
     this.group = "target";
     this.penetrable = true; // all target are penetrable by default
+    this.finish = false;
     
     var width = 20;
     var height = 20;
@@ -196,6 +245,14 @@ function Target(x, y, dir) {
 
     Target.prototype.checkGoal = function(particle) {
         return particle.getEnergy() > this.energy;
+    }
+    
+    Target.prototype.goal = function() {
+        this.finish = true;
+    }
+    
+    Target.prototype.reset = function() {
+        this.finish = false;
     }
     
     Target.prototype.showParticleEnergy = function(energy) {
@@ -258,9 +315,9 @@ function Path(x, y, dir) {
     this.updateBoundingShape();
 }
 
-    Path.prototype.rotateOnClick = function() { // function to be executed when the object is clicked
-        this.dir -= Math.PI/2;
-    }
+    // Path.prototype.rotateOnClick = function() {
+        // this.dir -= Math.PI/2;
+    // }
 
 BlockObj.prototype = new Path();
 BlockObj.prototype.constructor = BlockObj;
@@ -372,6 +429,44 @@ function ElecFieldObj(x, y, dir) {
         this.shape.setFillPatternRotation(this.dir);
     }
 
+XRaySrcObj.prototype = new Path();
+XRaySrcObj.prototype.constructor = XRaySrcObj;
+function XRaySrcObj(x, y, dir) {
+    Path.call(this, x, y, dir);
+    this.type = "xray";
+    this.penetrable = false;
+    
+    this.energyMin = 3000;
+    
+    // styling
+    this.img = imagesLoader.XRay;
+    this.shape.setFillPatternImage(this.img);
+    this.shape.setStroke("white");
+}
+
+    XRaySrcObj.prototype.canProduceXRay = function(p) { // when a particle collide it
+        if (p.getEnergy() < this.energyMin) return false;
+        if (p.type != "electron") return false;
+        return true;
+    }
+    
+    XRaySrcObj.prototype.produceXRay = function(p) {
+        // initial condition of the particle
+        var x = p.shape.getX();
+        var y = p.shape.getY();
+        var dir = Math.random() * Math.PI/2 - Math.PI/4 + p.dir; // from p.dir-pi/4 to p.dir+pi/4
+        
+        // create the particle object
+        var constructor = getConstructorFromType("photon");
+        var particleObj = new constructor(x, y, dir);
+        
+        // set velocity of the particle
+        var energyFactor = Math.random() * 0.3 + 0.5; // from 0.5 to 0.8
+        particleObj.setEnergy(p.getEnergy() * energyFactor);
+        particleObj.setVelocityRad(dir);
+        
+        return [particleObj];
+    }
 
 
 
@@ -420,10 +515,6 @@ function Particle(x, y, dir) {
         var dx = this.vx * C.dt;
         var dy = this.vy * C.dt;
         this.moveTo(this.shape.getX() + dx, this.shape.getY() + dy);
-        // console.log(this.boundingShape.coords[0][0], this.boundingShape.coords[0][1]);
-        // this.shape.setX(this.shape.getX() + dx);
-        // this.shape.setY(this.shape.getY() + dy);
-        // this.boundingShape.coords = moveBox(this.boundingShape.coords, [dx, dy]);
     }
 
     Particle.prototype.getVelocityRad = function() {
@@ -559,25 +650,47 @@ function PhotonObj(x, y, dir) {
     this.type = "photon";
     this.penetrable = true;
     this.q = 0;
+    this.m = 0.1;
+    this.energy = 0;
+    this.vx = 150;
+    this.vy = 0;
     
     this.shape.setRadius(2);
     this.shape.setFill("yellow");
     this.shape.setStroke("white");
 }
 
+    PhotonObj.prototype.getEnergy = function() {
+        return this.energy;
+    }
+
+    PhotonObj.prototype.setEnergy = function(energy) {
+        this.energy = energy;
+    }
 
 
 
 function getConstructorFromType(type) {
+    // sources
     if (type == "single-source") return SingleSourceObj;
     else if (type == "burst-source") return BurstSourceObj;
+    else if (type == "proton-source") return ProtonSourceObj;
+    else if (type == "electron-source") return ElectronSourceObj;
+    else if (type == "muon-source") return MuonSourceObj;
+    
+    // targets
     else if (type == "fixed-target") return FixedTargetObj;
     else if (type == "collision-target") return CollisionTargetObj;
+    
+    // paths
     else if (type == "block") return BlockObj;
     else if (type == "mag-field") return MagFieldObj;
     else if (type == "strong-mag-field") return StrongMagFieldObj;
     else if (type == "alt-mag-field") return AltMagFieldObj;
     else if (type == "elec-field") return ElecFieldObj;
+    else if (type == "xray") return XRaySrcObj;
+    
+    // particles
     else if (type == "muon") return MuonObj;
     else if (type == "proton") return ProtonObj;
     else if (type == "electron") return ElectronObj;

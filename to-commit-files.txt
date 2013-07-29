@@ -1,0 +1,7 @@
+* open your terminal (if windows, use cygwin with git installed)
+* cd to this directory
+* type (without "=="):
+== git add *
+== git commit -m "My commit message"
+== git remote add origin https://github.com/username/BizarreAccelerator.git (only do once)
+== git push origin master

@@ -1,0 +1,32 @@
+Stage Creator <br/>
+<span class="clickable" onclick="stage.play()">Play</span>
+<span class="clickable" onclick="stage.pause()">Pause</span>
+<span class="clickable" onclick="stage.stop()">Stop</span>
+<span class="clickable" onclick="stage.removeAllUtils()">Clear</span>
+<span class="clickable" onclick="saveStage()">Save</span><br/>
+Stage Name: <input type="text" id="stage-name"/>
+
+<div id="stage-container"></div>
+<div id="utils-container"></div>
+
+<textarea id="stage-conf"></textarea>
+
+<a href="front-page.html">Back</a>
+
+<script type="text/javascript">
+    requestStage(0);
+    document.getElementById("stage-container").addEventListener("contextmenu", function(e) {
+        e.preventDefault();
+    });
+    
+    function saveStage() {
+        var stageName = $("#stage-name").val();
+        stageName = stageName ? stageName : "Custom stage";
+        
+        var conf = stage.getConfigObj();
+        conf.stageName = stageName;
+        
+        $("#stage-conf").html(JSON.stringify(conf));
+    }
+</script>
+
